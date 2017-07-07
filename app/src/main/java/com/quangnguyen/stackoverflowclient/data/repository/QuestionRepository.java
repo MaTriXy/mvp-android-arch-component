@@ -22,8 +22,9 @@ public class QuestionRepository implements QuestionDataSource {
 
   @Override
   public Flowable<List<Question>> loadQuestions(boolean forceRemote) {
+    Flowable<List<Question>> questions;
     if (forceRemote) {
-      return remoteDataSource.loadQuestions(true).doOnEach(notification -> {
+      questions = remoteDataSource.loadQuestions(true).doOnEach(notification -> {
         // Save new data to local data source
         List<Question> list = notification.getValue();
         if (list != null && !list.isEmpty()) {
@@ -31,19 +32,21 @@ public class QuestionRepository implements QuestionDataSource {
         }
       });
     } else {
-      return localDataSource.loadQuestions(false);
+      questions =
+          localDataSource.loadQuestions(false);
     }
+    return questions;
   }
 
   @Override
   public void addQuestion(Question question) {
-    //Currently, we do not need this for remote source.
+    //Currently, we do not need this.
     throw new UnsupportedOperationException("Unsupported operation");
   }
 
   @Override
   public void clearData() {
-    //Currently, we do not need this for remote source.
+    //Currently, we do not need this.
     throw new UnsupportedOperationException("Unsupported operation");
   }
 

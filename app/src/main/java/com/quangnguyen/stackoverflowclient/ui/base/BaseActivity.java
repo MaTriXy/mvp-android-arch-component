@@ -6,7 +6,7 @@ import android.arch.lifecycle.LifecycleRegistry;
 import android.arch.lifecycle.LifecycleRegistryOwner;
 import android.support.v7.app.AppCompatActivity;
 import com.quangnguyen.stackoverflowclient.AndroidApplication;
-import com.quangnguyen.stackoverflowclient.di.component.QuestionRepositoryComponent;
+import com.quangnguyen.stackoverflowclient.data.QuestionRepositoryComponent;
 
 /**
  * @author QuangNguyen (quangctkm9207).
@@ -20,7 +20,7 @@ public class BaseActivity extends AppCompatActivity implements LifecycleRegistry
     fragmentTransaction.commit();
   }
 
-  public QuestionRepositoryComponent getQuestionRepositoryComponent() {
+  protected QuestionRepositoryComponent getQuestionRepositoryComponent() {
     return ((AndroidApplication) getApplication()).getQuestionRepositoryComponent();
   }
 
