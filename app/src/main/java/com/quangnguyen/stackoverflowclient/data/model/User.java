@@ -2,15 +2,15 @@ package com.quangnguyen.stackoverflowclient.data.model;
 
 import com.google.gson.annotations.SerializedName;
 
-/**
- * @author QuangNguyen (quangctkm9207).
- */
 public class User {
   @SerializedName("user_id")
   private long id;
 
   @SerializedName("display_name")
   private String name;
+
+  @SerializedName("profile_image")
+  private String image;
 
   @SerializedName("link")
   private String link;
@@ -29,6 +29,14 @@ public class User {
 
   public void setName(String name) {
     this.name = name;
+  }
+
+  public String getImage() {
+    return image;
+  }
+
+  public void setImage(String image) {
+    this.image = image;
   }
 
   public String getLink() {

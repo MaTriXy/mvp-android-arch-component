@@ -4,82 +4,153 @@ import com.quangnguyen.stackoverflowclient.data.model.Question;
 import com.quangnguyen.stackoverflowclient.data.repository.QuestionRepository;
 import com.quangnguyen.stackoverflowclient.ui.questions.QuestionsContract;
 import com.quangnguyen.stackoverflowclient.ui.questions.QuestionsPresenter;
-import com.quangnguyen.stackoverflowclient.util.schedulers.RunOn;
 import io.reactivex.Flowable;
-import io.reactivex.Scheduler;
 import io.reactivex.schedulers.TestScheduler;
-import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.MockitoAnnotations;
 
-import static com.quangnguyen.stackoverflowclient.util.schedulers.SchedulerType.COMPUTATION;
-import static com.quangnguyen.stackoverflowclient.util.schedulers.SchedulerType.UI;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 
-/**
- * @author QuangNguyen (quangctkm9207).
- */
-@RunWith(MockitoJUnitRunner.class)
+@RunWith(Parameterized.class)
 public class QuestionsPresenterTest {
-  ;
-  private static final Question question1 = new Question();
-  private static final Question question2 = new Question();
-  private static final Question question3 = new Question();
-  private List<Question> questions = Arrays.asList(question1, question2, question3);
+  private static final Question QUESTION1 = new Question();
+  private static final Question QUESTION2 = new Question();
+  private static final Question QUESTION3 = new Question();
+  private static final List<Question> NO_QUESTION = Collections.emptyList();
+  private static final List<Question> THREE_QUESTIONS =
+      Arrays.asList(QUESTION1, QUESTION2, QUESTION3);
 
-  @Mock
-  private QuestionRepository repository;
+  @Parameters public static Object[] data() {
+    return new Object[] { NO_QUESTION, THREE_QUESTIONS };
+  }
 
-  @Mock
-  private QuestionsContract.View view;
+  @Parameter public List<Question> questions;
 
-  @RunOn(COMPUTATION)
-  private Scheduler computationScheduler;
+  @Mock private QuestionRepository repository;
 
-  @RunOn(UI)
-  private Scheduler uiScheduler;
+  @Mock private QuestionsContract.View view;
 
   private TestScheduler testScheduler;
 
   private QuestionsPresenter presenter;
 
-  @Before
-  public void setUp() {
-    // Make sure to use TestScheduler for RxJava testing
+  @Before public void setUp() {
+    MockitoAnnotations.initMocks(this);
     testScheduler = new TestScheduler();
-    computationScheduler = testScheduler;
-    uiScheduler = testScheduler;
-    presenter = new QuestionsPresenter(repository, view, computationScheduler, uiScheduler);
+    presenter = new QuestionsPresenter(repository, view, testScheduler, testScheduler);
   }
 
-  @Test
-  public void loadQuestions_FromRepoToView_WithDataReturned() {
-    doReturn(Flowable.just(questions)).when(repository).loadQuestions(true);
-    presenter.loadQuestions(true);
-    testScheduler.triggerActions(); // Trigger actions for test scheduler
+  @Test public void loadQuestions_ShouldAlwaysStopLoadingIndicatorOnView_WhenComplete() {
+    // Given
+    given(repository.loadQuestions(true)).willReturn(Flowable.just(questions));
 
-    verify(view).clearQuestions();
-    verify(view).showQuestions(questions);
-    verify(view, atLeastOnce()).stopLoadingIndicator();
+    // When
+    presenter.loadQuestions(true);
+    testScheduler.triggerActions();
+
+    // Then
+    then(view).should(atLeastOnce()).stopLoadingIndicator();
   }
 
-  @Test
-  public void loadQuestions_FromRepoToView_WithNoDataReturned() {
-    doReturn(Flowable.just(new ArrayList<Question>())).when(repository).loadQuestions(true);
-    presenter.loadQuestions(true);
-    testScheduler.triggerActions(); // Trigger actions for test scheduler
+  @Test public void loadQuestions_ShouldShowQuestionOnView_WithDataReturned() {
+    // Given
+    given(repository.loadQuestions(true)).willReturn(Flowable.just(THREE_QUESTIONS));
 
-    verify(view).clearQuestions();
-    verify(view, never()).showQuestions(questions);
-    verify(view).showNoDataMessage();
-    verify(view, atLeastOnce()).stopLoadingIndicator();
+    // When
+    presenter.loadQuestions(true);
+    testScheduler.triggerActions();
+
+    // Then
+    then(view).should().clearQuestions();
+    then(view).should().showQuestions(THREE_QUESTIONS);
+    then(view).should(atLeastOnce()).stopLoadingIndicator();
+  }
+
+  @Test public void loadQuestions_ShouldShowMessage_WhenNoDataReturned() {
+    // Given
+    given(repository.loadQuestions(true)).willReturn(Flowable.just(NO_QUESTION));
+
+    // When
+    presenter.loadQuestions(true);
+    testScheduler.triggerActions();
+
+    // Then
+    then(view).should().clearQuestions();
+    then(view).should(never()).showQuestions(any());
+    then(view).should().showNoDataMessage();
+    then(view).should(atLeastOnce()).stopLoadingIndicator();
+  }
+
+  @Test public void getQuestion_ShouldShowDetailOnView() {
+    // Given
+    given(repository.getQuestion(1)).willReturn(Flowable.just(QUESTION1));
+
+    // When
+    presenter.getQuestion(1);
+    testScheduler.triggerActions();
+
+    // Then
+    then(view).should().showQuestionDetail(QUESTION1);
+  }
+
+  @Test public void search_ResultShouldBeShownOnView_WhenFilteredDataIsNotEmpty() {
+    // Given
+    QUESTION1.setTitle("activity onCreate");
+    QUESTION2.setTitle("activity onDestroy");
+    QUESTION3.setTitle("fragment");
+    given(repository.loadQuestions(false)).willReturn(Flowable.just(THREE_QUESTIONS));
+
+    // When
+    presenter.search("activity");
+    testScheduler.triggerActions();
+
+    // Then
+    // Return a list of questions which should contains only question 1.
+    then(view).should().showQuestions(Arrays.asList(QUESTION1, QUESTION2));
+    then(view).shouldHaveNoMoreInteractions();
+  }
+
+  @Test public void search_EmptyMessageShouldBeShownOnView_WhenDataIsEmpty() {
+    // Given
+    given(repository.loadQuestions(false)).willReturn(Flowable.just(NO_QUESTION));
+
+    // When
+    presenter.search(any());
+    testScheduler.triggerActions();
+
+    // Then
+    then(view).should().clearQuestions();
+    then(view).should().showEmptySearchResult();
+    then(view).shouldHaveNoMoreInteractions();
+  }
+
+  @Test public void search_EmptyMessageShouldBeShownOnView_WhenNoDataMatchesQuery() {
+    // Given
+    QUESTION1.setTitle("activity onCreate");
+    QUESTION2.setTitle("activity onDestroy");
+    QUESTION3.setTitle("fragment");
+    given(repository.loadQuestions(false)).willReturn(Flowable.just(NO_QUESTION));
+
+    // When
+    presenter.search("invalid question");
+    testScheduler.triggerActions();
+
+    // Then
+    then(view).should().clearQuestions();
+    then(view).should().showEmptySearchResult();
+    then(view).shouldHaveNoMoreInteractions();
   }
 }
